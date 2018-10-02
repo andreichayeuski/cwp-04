@@ -1,13 +1,21 @@
 const net = require('net');
-const getArrayOfQA = require('./getArrayOfQA');
 
 const port = 8124;
 
 const client = new net.Socket();
-let questionAndAnswers = getArrayOfQA('qa.json');
-
 client.setEncoding('utf8');
 
+// let countOfArgs = 0;
+// process.argv.forEach((element)=>
+// {
+// 	countOfArgs += 1;
+// });
+//
+// if (countOfArgs != 5)
+// {
+// 	console.log("Don't found an argument");
+// 	process.exit(1);
+// }
 client.connect(port, function (err) {
 	if (err) {
 		throw err;
@@ -16,31 +24,22 @@ client.connect(port, function (err) {
 	client.write("REMOTE");
 });
 
-let counter = 0;
 let isConnected = false;
 client.on('data', function (data) {
 	console.log("Received from server: " + data);
 	if (isConnected) {
-
-		if (counter === questionAndAnswers.length) {
-			client.destroy();
-			process.exit(0);
-		}
-		else {
-			client.write(`Question: ${questionAndAnswers[counter++].question}`);
-		}
 	}
 	else {
 		if (data === "ACK") {
 			isConnected = true;
-			client.write(`COPY  ${process.argv[2]}  ${process.argv[3]}`);
+			console.log(`${process.argv[2]} \"${process.argv[3]}\" \"${process.argv[4]}\" ${process.argv[5] === undefined ? "" : process.argv[5]}`);
+			client.write(`${process.argv[2]} \"${process.argv[3]}\" \"${process.argv[4]}\" ${process.argv[5] === undefined ? "" : process.argv[5]}`);
 		}
 		else {
 			client.destroy();
 			process.exit(0);
 		}
 	}
-
 });
 
 client.on('close', function () {

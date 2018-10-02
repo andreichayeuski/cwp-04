@@ -1,10 +1,14 @@
 const net = require('net');
 const fs = require('fs');
 const getArrayOfQA = require('./getArrayOfQA');
+const crypto = require('crypto');
+const pump = require('pump');
 const port = 8124;
+
 let questionAndAnswers = getArrayOfQA('qa.json');
 const defaultDir = process.env.CWP_DIR_FOR_CLIENT;
 const maxClients = process.env.CWP_MAX_CLIENTS;
+const algorithm = 'aes-128-cbc';
 
 if (!fs.existsSync("log"))
 {
@@ -18,8 +22,8 @@ if (!fs.existsSync("log"))
 }
 
 let counterOfClients = 0;
+let seed = 0;
 const server = net.createServer((client) => {
-    let seed = 0;
     console.log('Client connected');
 	client.identifier = Date.now() + seed++; // unique id
 	let filename = `log/client_${client.identifier}.log`;
@@ -73,8 +77,48 @@ const server = net.createServer((client) => {
 	        }
 	        else if (isRemote)
 	        {
-	            let dataArray = data.split('  ');
-	            console.log(dataArray);
+	            let dataArray = data.split(' \"');
+	            dataArray[1] = dataArray[1].replace('\"', "");
+		        dataArray[2] = dataArray[2].replace('\"', "");
+		        console.log(dataArray);
+		        let readFileStream = fs.createReadStream(dataArray[1]);
+		        let writeFileStream = fs.createWriteStream(dataArray[2]);
+		        readFileStream.on('data', (chunk) => {
+			        writeFileStream.write(chunk);
+		        });
+		        readFileStream.on('end', () => {
+			        writeFileStream.end();
+		        });
+		        if (dataArray[0] === 'COPY')
+		        {
+			        // readFileStream.pipe(writeFileStream);
+			        pump(readFileStream, writeFileStream, (err) => {
+				        console.log('pipe finished', err);
+			        });
+			        setTimeout(function() {
+				        writeFileStream.destroy() // when dest is closed pump will destroy source
+			        }, 1000);
+			        console.log("copy");
+		        }
+		        else if (dataArray[0] === 'ENCODE')
+		        {
+			        let cryptoStream = crypto.createCipher(algorithm, dataArray[3]);
+			        readFileStream.pipe(cryptoStream).pipe(writeFileStream).on('close', () => { readFileStream.destroy();
+				        writeFileStream.destroy(); });
+			        console.log("encode");
+		        }
+		        else if (dataArray[0] === 'DECODE')
+		        {
+			        let cryptoStream = crypto.createDecipher(algorithm, dataArray[3]);
+			        readFileStream.pipe(cryptoStream).pipe(writeFileStream).on('close', () => { readFileStream.destroy();
+				        writeFileStream.destroy(); });
+			        console.log("decoded");
+		        }
+		        // readFileStream.destroy();
+
+		        // writeFileStream.end();
+		        console.log("destroyed");
+
 	        }
 	        else
 	        {
@@ -137,8 +181,6 @@ const server = net.createServer((client) => {
 	        });
         }
     });
-
-
 });
 
 server.listen(port, () => {
