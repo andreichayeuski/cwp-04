@@ -2,7 +2,6 @@ const net = require('net');
 const fs = require('fs');
 const getArrayOfQA = require('./getArrayOfQA');
 const crypto = require('crypto');
-const pump = require('pump');
 const port = 8124;
 
 let questionAndAnswers = getArrayOfQA('qa.json');
@@ -83,42 +82,26 @@ const server = net.createServer((client) => {
 		        console.log(dataArray);
 		        let readFileStream = fs.createReadStream(dataArray[1]);
 		        let writeFileStream = fs.createWriteStream(dataArray[2]);
-		        readFileStream.on('data', (chunk) => {
-			        writeFileStream.write(chunk);
-		        });
-		        readFileStream.on('end', () => {
-			        writeFileStream.end();
-		        });
 		        if (dataArray[0] === 'COPY')
 		        {
-			        // readFileStream.pipe(writeFileStream);
-			        pump(readFileStream, writeFileStream, (err) => {
-				        console.log('pipe finished', err);
-			        });
-			        setTimeout(function() {
-				        writeFileStream.destroy() // when dest is closed pump will destroy source
-			        }, 1000);
-			        console.log("copy");
+			        readFileStream.pipe(writeFileStream);
+			        client.write("DONE CLONE");
+			        console.log("copied");
 		        }
 		        else if (dataArray[0] === 'ENCODE')
 		        {
 			        let cryptoStream = crypto.createCipher(algorithm, dataArray[3]);
-			        readFileStream.pipe(cryptoStream).pipe(writeFileStream).on('close', () => { readFileStream.destroy();
-				        writeFileStream.destroy(); });
-			        console.log("encode");
+			        readFileStream.pipe(cryptoStream).pipe(writeFileStream);
+			        console.log("encoded");
 		        }
 		        else if (dataArray[0] === 'DECODE')
 		        {
 			        let cryptoStream = crypto.createDecipher(algorithm, dataArray[3]);
-			        readFileStream.pipe(cryptoStream).pipe(writeFileStream).on('close', () => { readFileStream.destroy();
-				        writeFileStream.destroy(); });
+			        readFileStream.pipe(cryptoStream).pipe(writeFileStream);
 			        console.log("decoded");
 		        }
-		        // readFileStream.destroy();
-
-		        // writeFileStream.end();
-		        console.log("destroyed");
-
+		        isRemote = false;
+		        client.end();
 	        }
 	        else
 	        {
