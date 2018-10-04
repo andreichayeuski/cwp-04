@@ -77,8 +77,9 @@ const server = net.createServer((client) => {
 	        else if (isRemote)
 	        {
 	            let dataArray = data.split(' \"');
+		        console.log(dataArray);
 	            dataArray[1] = dataArray[1].replace('\"', "");
-		        dataArray[2] = dataArray[2].replace('\"', "");
+		        dataArray[2] = dataArray[2].replace('\" ', "");
 		        console.log(dataArray);
 		        let readFileStream = fs.createReadStream(dataArray[1]);
 		        let writeFileStream = fs.createWriteStream(dataArray[2]);
